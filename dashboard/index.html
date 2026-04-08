@@ -1,1 +1,182 @@
-<!DOCTYPE html><html><body><h1>Dashboard coming soon</h1></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acme Logistics — Carrier Sales Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+    header { padding: 1.5rem 2rem; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: #38bdf8; }
+    header p { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; }
+    .refresh { padding: 0.4rem 1rem; background: #0ea5e9; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 0.8rem; margin-left: auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; padding: 1.5rem 2rem; }
+    .card { background: #1e293b; border-radius: 0.75rem; padding: 1.25rem; border: 1px solid #334155; }
+    .card .label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+    .card .value { font-size: 2rem; font-weight: 700; margin-top: 0.25rem; }
+    .value.green { color: #4ade80; }
+    .value.red { color: #f87171; }
+    .value.blue { color: #38bdf8; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 0 2rem 1.5rem; }
+    .chart-card { background: #1e293b; border-radius: 0.75rem; padding: 1.25rem; border: 1px solid #334155; }
+    .chart-card h2 { font-size: 0.875rem; color: #94a3b8; margin-bottom: 1rem; }
+    .section-title { padding: 0 2rem 0.75rem; font-size: 0.875rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th { text-align: left; padding: 0.5rem 0.75rem; color: #94a3b8; border-bottom: 1px solid #334155; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1e293b; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+    .badge-booked { background: #14532d; color: #4ade80; }
+    .badge-no_deal { background: #450a0a; color: #f87171; }
+    .badge-abandoned { background: #422006; color: #fb923c; }
+    .badge-positive { background: #14532d; color: #4ade80; }
+    .badge-neutral { background: #1e3a5f; color: #38bdf8; }
+    .badge-negative { background: #450a0a; color: #f87171; }
+    .table-wrap { padding: 0 2rem 2rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Acme Logistics — Inbound Carrier Sales</h1>
+      <p>AI Agent Performance Dashboard</p>
+    </div>
+    <button class="refresh" id="refreshBtn">&#8635; Refresh</button>
+  </header>
+
+  <div class="grid" id="kpiGrid"></div>
+
+  <div class="charts">
+    <div class="chart-card">
+      <h2>Outcome Breakdown</h2>
+      <canvas id="outcomeChart" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2>Sentiment Breakdown</h2>
+      <canvas id="sentimentChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="section-title">Recent Calls</div>
+  <div class="table-wrap">
+    <div class="chart-card">
+      <table>
+        <thead>
+          <tr>
+            <th>MC #</th><th>Load</th><th>Outcome</th>
+            <th>Sentiment</th><th>Rate</th><th>Rounds</th>
+          </tr>
+        </thead>
+        <tbody id="callsTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'changeme';
+    let outcomeChart, sentimentChart;
+
+    function makeBadge(text, cssClass) {
+      const span = document.createElement('span');
+      span.className = 'badge badge-' + cssClass;
+      span.textContent = text;
+      return span;
+    }
+
+    function renderKPIs(d) {
+      const grid = document.getElementById('kpiGrid');
+      grid.textContent = '';
+      const items = [
+        { label: 'Total Calls', value: d.total_calls, cls: 'blue' },
+        { label: 'Booked', value: d.booked, cls: 'green' },
+        { label: 'No Deal', value: d.no_deal, cls: 'red' },
+        { label: 'Conversion Rate', value: (d.conversion_rate * 100).toFixed(1) + '%', cls: 'blue' },
+        { label: 'Abandoned', value: d.abandoned, cls: '' },
+      ];
+      items.forEach(function(item) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const label = document.createElement('div');
+        label.className = 'label';
+        label.textContent = item.label;
+        const value = document.createElement('div');
+        value.className = 'value ' + item.cls;
+        value.textContent = item.value;
+        card.appendChild(label);
+        card.appendChild(value);
+        grid.appendChild(card);
+      });
+    }
+
+    function renderCharts(d) {
+      if (outcomeChart) outcomeChart.destroy();
+      outcomeChart = new Chart(document.getElementById('outcomeChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Booked', 'No Deal', 'Abandoned'],
+          datasets: [{ data: [d.booked, d.no_deal, d.abandoned], backgroundColor: ['#4ade80', '#f87171', '#fb923c'] }]
+        },
+        options: { plugins: { legend: { labels: { color: '#e2e8f0' } } } }
+      });
+
+      const sentLabels = Object.keys(d.sentiment_breakdown);
+      const sentData = Object.values(d.sentiment_breakdown);
+      if (sentimentChart) sentimentChart.destroy();
+      sentimentChart = new Chart(document.getElementById('sentimentChart'), {
+        type: 'doughnut',
+        data: {
+          labels: sentLabels,
+          datasets: [{ data: sentData, backgroundColor: ['#4ade80', '#38bdf8', '#f87171'] }]
+        },
+        options: { plugins: { legend: { labels: { color: '#e2e8f0' } } } }
+      });
+    }
+
+    function renderTable(calls) {
+      const tbody = document.getElementById('callsTable');
+      tbody.textContent = '';
+      calls.forEach(function(c) {
+        const tr = document.createElement('tr');
+
+        function td(text) {
+          const cell = document.createElement('td');
+          cell.textContent = text;
+          return cell;
+        }
+
+        tr.appendChild(td(c.mc_number));
+        tr.appendChild(td(c.load_id || '\u2014'));
+
+        const outcomeCell = document.createElement('td');
+        outcomeCell.appendChild(makeBadge(c.outcome, c.outcome));
+        tr.appendChild(outcomeCell);
+
+        const sentCell = document.createElement('td');
+        sentCell.appendChild(makeBadge(c.sentiment, c.sentiment));
+        tr.appendChild(sentCell);
+
+        tr.appendChild(td(c.agreed_rate ? '$' + Number(c.agreed_rate).toLocaleString() : '\u2014'));
+        tr.appendChild(td(String(c.num_negotiations)));
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadMetrics() {
+      try {
+        const res = await fetch('/metrics', { headers: { 'x-api-key': API_KEY } });
+        const d = await res.json();
+        renderKPIs(d);
+        renderCharts(d);
+        renderTable(d.recent_calls);
+      } catch (err) {
+        console.error('Failed to load metrics', err);
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', loadMetrics);
+    loadMetrics();
+    setInterval(loadMetrics, 30000);
+  </script>
+</body>
+</html>

@@ -8,7 +8,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-
+# cache-bust: 2026-04-08
 RUN chown -R appuser:appgroup /app
 USER appuser
 

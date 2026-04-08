@@ -62,10 +62,11 @@ class NegotiationResult:
 @dataclass
 class CallRecord:
     load_id: Optional[str]
-    mc_number: str
+    mc_number: Optional[str]
     outcome: CallOutcome
     sentiment: Sentiment
     agreed_rate: Optional[float]
     num_negotiations: int
     duration_seconds: Optional[int] = None
+    notes: Optional[str] = None
     id: Optional[int] = None

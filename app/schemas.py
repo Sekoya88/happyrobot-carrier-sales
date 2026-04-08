@@ -46,6 +46,10 @@ class MetricsOut(BaseModel):
     no_deal: int
     abandoned: int
     conversion_rate: float
+    avg_agreed_rate: Optional[float]
+    total_revenue: float
+    avg_negotiations: float
     avg_rate_variance_pct: Optional[float]
     sentiment_breakdown: dict
+    calls_over_time: list
     recent_calls: list

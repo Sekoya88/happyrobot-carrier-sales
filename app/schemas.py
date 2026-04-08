@@ -28,7 +28,7 @@ class CarrierVerificationOut(BaseModel):
 class CallRecordIn(BaseModel):
     load_id: Optional[str] = None
     mc_number: Optional[str] = None
-    outcome: CallOutcome
+    outcome: CallOutcome = CallOutcome.abandoned
     sentiment: Sentiment = Sentiment.neutral
     agreed_rate: Optional[float] = None
     num_negotiations: int = 0

@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, field_validator, model_validator
+from typing import Optional, Any
 from domain.entities import CallOutcome, Sentiment
 
 
@@ -34,6 +34,45 @@ class CallRecordIn(BaseModel):
     num_negotiations: int = 0
     duration_seconds: Optional[int] = None
     notes: Optional[str] = None
+
+    @field_validator("outcome", mode="before")
+    @classmethod
+    def coerce_outcome(cls, v: Any) -> CallOutcome:
+        if isinstance(v, str):
+            # strip unresolved HappyRobot variable placeholders
+            clean = v.strip().lower().replace("@record_call.", "")
+            mapping = {"booked": CallOutcome.booked, "no_deal": CallOutcome.no_deal, "abandoned": CallOutcome.abandoned}
+            return mapping.get(clean, CallOutcome.abandoned)
+        return v
+
+    @field_validator("sentiment", mode="before")
+    @classmethod
+    def coerce_sentiment(cls, v: Any) -> Sentiment:
+        if isinstance(v, str):
+            clean = v.strip().lower().replace("@record_call.", "")
+            mapping = {"positive": Sentiment.positive, "neutral": Sentiment.neutral, "negative": Sentiment.negative}
+            return mapping.get(clean, Sentiment.neutral)
+        return v
+
+    @field_validator("agreed_rate", mode="before")
+    @classmethod
+    def coerce_agreed_rate(cls, v: Any) -> Optional[float]:
+        if v is None or v == "" or (isinstance(v, str) and v.startswith("@")):
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator("num_negotiations", mode="before")
+    @classmethod
+    def coerce_num_negotiations(cls, v: Any) -> int:
+        if v is None or (isinstance(v, str) and v.startswith("@")):
+            return 0
+        try:
+            return int(float(str(v)))
+        except (ValueError, TypeError):
+            return 0
 
 
 class CallRecordOut(CallRecordIn):

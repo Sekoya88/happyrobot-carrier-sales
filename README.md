@@ -230,5 +230,5 @@ pytest tests/ -v
 | 2 | Acme Logistics build description | ✅ drafted | `docs/deliverables/acme-logistics-build-description.md` |
 | 3 | Deployed dashboard | ✅ live | https://happyrobot-challenge-production-caf1.up.railway.app/dashboard/ |
 | 4 | Code repository | ✅ | https://github.com/Sekoya88/happyrobot-carrier-sales |
-| 5 | HappyRobot workflow link | ✏️ to publish | [paste URL after publishing workflow] |
+| 5 | HappyRobot workflow link | ✅ | https://platform.happyrobot.ai/fdenicolasedmond/workflows/sydlyp5fseu1/editor/3rfms0mgxr65 |
 | 6 | Demo video (5 min) | ✏️ to record | [paste Loom URL after recording] |

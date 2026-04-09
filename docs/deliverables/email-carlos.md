@@ -1,17 +1,12 @@
 # Draft Email — Carlos Becker
 
-> **Instructions:**
-> - Replace `[YOUR NAME]` with your name
-> - Replace `[RECRUITER EMAIL]` with the recruiter's address (in cc)
-> - Fill in `[WORKFLOW URL]` after publishing the HappyRobot workflow
-> - Fill in `[LOOM URL]` after recording the demo video
-> - Send to: **c.becker@happyrobot.ai** with recruiter in cc
-> - Review and adjust tone to match your style before sending
+> ⚠️ **À compléter avant envoi:** remplacer `[LOOM URL]` par l'URL de ta vidéo Loom une fois enregistrée.  
+> Ensuite, copier-coller le contenu dans Gmail et envoyer.
 
 ---
 
 **To:** c.becker@happyrobot.ai  
-**Cc:** [recruiter email]  
+**Cc:** ana.taberna@happyrobot.ai  
 **Subject:** Acme Logistics — Inbound Carrier Automation PoC · Ready for Review
 
 ---
@@ -26,7 +21,7 @@ The full proof-of-concept is deployed and functional:
 
 - **Deployed API + Dashboard:** https://happyrobot-challenge-production-caf1.up.railway.app/dashboard/
 - **Code repository:** https://github.com/Sekoya88/happyrobot-carrier-sales
-- **HappyRobot workflow:** [WORKFLOW URL]
+- **HappyRobot workflow:** https://platform.happyrobot.ai/fdenicolasedmond/workflows/sydlyp5fseu1/editor/3rfms0mgxr65
 
 **What the system does**
 
@@ -53,4 +48,4 @@ I've also prepared a full build description document for Acme Logistics that cov
 Looking forward to our conversation.
 
 Best,  
-[YOUR NAME]
+Nicolas Edmond

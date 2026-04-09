@@ -1,7 +1,7 @@
 # Inbound Carrier Automation — Build Description
 
 **Client:** Acme Logistics  
-**Prepared by:** [YOUR NAME]  
+**Prepared by:** Nicolas Edmond  
 **Date:** April 2026  
 **Version:** 1.0  
 
@@ -206,7 +206,7 @@ The HappyRobot agent is configured with:
 - **AI Extract node** at call end → captures outcome, sentiment, agreed rate, negotiation count, duration
 - **Webhook** → `POST /calls` with the extracted structured data
 
-**Workflow link:** [PASTE HAPPYROBOT WORKFLOW URL]
+**Workflow link:** https://platform.happyrobot.ai/fdenicolasedmond/workflows/sydlyp5fseu1/editor/3rfms0mgxr65
 
 ---
 

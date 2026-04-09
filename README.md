@@ -221,14 +221,3 @@ pytest tests/ -v
 | 5 | "Deal" | Mock transfer message → AI Extract → `POST /calls` (booked) |
 
 ---
-
-## Deliverables
-
-| # | Deliverable | Status | Link |
-|---|-------------|--------|------|
-| 1 | Email to Carlos Becker | ✏️ to send | `docs/deliverables/email-carlos.md` |
-| 2 | Acme Logistics build description | ✅ drafted | `docs/deliverables/acme-logistics-build-description.md` |
-| 3 | Deployed dashboard | ✅ live | https://happyrobot-challenge-production-caf1.up.railway.app/dashboard/ |
-| 4 | Code repository | ✅ | https://github.com/Sekoya88/happyrobot-carrier-sales |
-| 5 | HappyRobot workflow link | ✅ | https://platform.happyrobot.ai/fdenicolasedmond/workflows/sydlyp5fseu1/editor/3rfms0mgxr65 |
-| 6 | Demo video (5 min) | ✏️ to record | [paste Loom URL after recording] |

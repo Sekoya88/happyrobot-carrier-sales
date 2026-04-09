@@ -29,6 +29,14 @@ HappyRobot Voice Agent  →  FastAPI Backend  →  SQLite
 | GET | /dashboard/ | None | Broker dashboard UI (injects API key into page) |
 | GET | /dashboard/dashboard.css | None | Dashboard stylesheet |
 
+## Security
+
+All endpoints except `/health` and `/dashboard/` require an `x-api-key` header matching the `API_KEY` environment variable.
+
+The dashboard API key is **injected server-side** — it never appears in the versioned source file. The on-disk HTML contains a literal placeholder (`__API_KEY_JSON__`) replaced at request time by `serve_dashboard()` in `app/main.py`.
+
+HTTPS is enforced by Railway's edge proxy. All traffic to `*.up.railway.app` is TLS-terminated before reaching the container.
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -60,6 +68,33 @@ Metrics (example): `curl -s -H "x-api-key: $API_KEY" http://localhost:8000/metri
 docker compose up --build
 ```
 
+## Deployment Reproduction (Railway)
+
+Live deployment: `https://happyrobot-challenge-production-caf1.up.railway.app`
+
+### Re-deploy from scratch
+
+1. Fork/clone this repository
+2. Create a new Railway project → **Deploy from GitHub repo** → select this repo
+3. Set the following environment variables in Railway → **Settings → Variables**:
+
+| Variable | Value |
+|----------|-------|
+| `API_KEY` | strong secret — e.g. `openssl rand -hex 16` |
+| `FMCSA_API_KEY` | your FMCSA web services key |
+| `FMCSA_MOCK_FALLBACK` | `true` (demo mode) or `false` (live FMCSA lookups) |
+
+4. Railway auto-detects the `Dockerfile`. `PORT` is injected automatically and consumed by the `CMD`.
+5. Once the build completes, access the dashboard at `https://<your-railway-domain>/dashboard/`
+
+### Local Docker
+
+```bash
+cp .env.example .env   # fill in API_KEY and FMCSA_API_KEY
+docker compose up --build
+open http://localhost:8000/dashboard/
+```
+
 ## Tests
 
 ```bash
@@ -70,10 +105,10 @@ Tests: negotiation, load search, metrics, FMCSA/MC validation, dashboard contrac
 
 ## Deliverables
 
-- **Workflow**: https://platform.happyrobot.ai/workflows/[WORKFLOW_SLUG]
-- **Dashboard**: https://[RAILWAY_URL]/dashboard
-- **Repository**: https://github.com/[USERNAME]/happyrobot-challenge
-- **Demo video**: https://loom.com/[VIDEO_ID]
+- **Dashboard**: https://happyrobot-challenge-production-caf1.up.railway.app/dashboard/
+- **Repository**: https://github.com/Sekoya88/happyrobot-carrier-sales
+- **Workflow**: [publish on HappyRobot platform and paste URL here]
+- **Demo video**: [record 5-min Loom after deployment verified and paste URL here]
 
 ## Demo Script
 

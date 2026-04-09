@@ -92,3 +92,7 @@ class MetricsOut(BaseModel):
     sentiment_breakdown: dict
     calls_over_time: list
     recent_calls: list
+    calls_today: int = 0
+    calls_yesterday: int = 0
+    avg_duration_seconds: Optional[float] = None
+    top_rate: Optional[float] = None

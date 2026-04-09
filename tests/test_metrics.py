@@ -30,3 +30,11 @@ def test_metrics_after_two_calls(repo):
     assert metrics["total_calls"] == 2
     assert metrics["booked"] == 1
     assert metrics["conversion_rate"] == 0.5
+    assert "calls_today" in metrics
+    assert "calls_yesterday" in metrics
+    assert "avg_duration_seconds" in metrics
+    assert "top_rate" in metrics
+    assert metrics["calls_today"] == 2        # both fixture records saved today
+    assert metrics["calls_yesterday"] == 0    # none saved yesterday
+    assert metrics["avg_duration_seconds"] is None  # no duration in fixture data
+    assert metrics["top_rate"] == 3100.0

@@ -1,93 +1,121 @@
 # HappyRobot — Inbound Carrier Sales Automation
 
-Proof-of-concept backend for automating inbound carrier calls. Carriers call in, get verified via FMCSA, matched to a load, and negotiate pricing — all handled by an AI voice agent on the HappyRobot platform backed by this API.
+Proof-of-concept backend for automating inbound carrier calls for a freight brokerage. Carriers call in, get verified via FMCSA, are matched to a load, and negotiate pricing — all handled by an AI voice agent on the HappyRobot platform backed by this FastAPI service.
+
+---
 
 ## Architecture
 
 ```
-HappyRobot Voice Agent  →  FastAPI Backend  →  SQLite
-(conversation layer)       (business logic)    (call history)
-                                ↓
-                         /dashboard (broker KPIs)
+HappyRobot Voice Agent  ──tool calls──►  FastAPI Backend  ──►  SQLite
+(conversation + NLP)                     (business logic)       (call history)
+                                               │
+                                         /dashboard/
+                                       (broker KPI UI)
 ```
 
-- **HappyRobot**: inbound voice agent, tool calls, conversation flow
-- **FastAPI**: carrier verification, load search, negotiation rules, call recording, metrics
-- **SQLite**: call history (swappable to Postgres behind the repository layer)
-- **Dashboard**: custom broker KPI UI (not HappyRobot analytics) — Aurora-style minimal UI at `/dashboard/`; static assets under `/dashboard/dashboard.css`. The HTML shell is rendered by FastAPI so `API_KEY` is injected from the server environment (source file on disk still contains a placeholder for local inspection only).
+- **HappyRobot**: inbound web-call agent, `verify_carrier` + `search_loads` tool calls, AI Extract node for call data, conversation flow
+- **FastAPI**: carrier verification, load search, negotiation rules, call recording, metrics API
+- **SQLite**: persistent call history (repository pattern — swap to Postgres without touching domain code)
+- **Dashboard**: custom Aurora-style broker KPI UI at `/dashboard/`; API key injected server-side by FastAPI
 
-## Endpoints
+---
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | /health | None | Health check |
-| GET | /verify-carrier/{mc_number} | x-api-key | FMCSA carrier verification |
-| GET | /loads | x-api-key | Search loads (origin, destination, equipment_type) |
-| GET | /loads/{load_id} | x-api-key | Get load by ID |
-| POST | /calls | x-api-key | Record call outcome |
-| GET | /metrics | x-api-key | Broker KPI metrics |
-| GET | /dashboard/ | None | Broker dashboard UI (injects API key into page) |
-| GET | /dashboard/dashboard.css | None | Dashboard stylesheet |
+## Objective 1 — Inbound Use Case
 
-## Security
+### Call Flow
 
-All endpoints except `/health` and `/dashboard/` require an `x-api-key` header matching the `API_KEY` environment variable.
+```
+Carrier calls in (web call trigger)
+  → Agent asks for MC number
+  → verify_carrier(mc_number)     # FMCSA eligibility check
+  → If ineligible → politely end call
+  → Agent asks for lane + equipment type
+  → search_loads(origin, destination, equipment_type)
+  → Agent pitches load details (rate, pickup, delivery, commodity)
+  → Negotiation loop (max 3 rounds, ceiling = loadboard_rate × 1.05)
+  → If price agreed → mock transfer message → AI Extract → POST /calls
+  → If no deal / abandoned → AI Extract → POST /calls
+```
 
-The dashboard API key is **injected server-side** — it never appears in the versioned source file. The on-disk HTML contains a literal placeholder (`__API_KEY_JSON__`) replaced at request time by `serve_dashboard()` in `app/main.py`.
+### Carrier Verification
 
-HTTPS is enforced by Railway's edge proxy. All traffic to `*.up.railway.app` is TLS-terminated before reaching the container.
+`GET /verify-carrier/{mc_number}` — calls FMCSA web services (mock fallback enabled by default). Returns:
 
-## Environment Variables
+```json
+{
+  "mc_number": "123456",
+  "eligible": true,
+  "status": "ACTIVE",
+  "dot_number": "1234567",
+  "legal_name": "FAST FREIGHT LLC"
+}
+```
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| API_KEY | Yes | API key for all protected endpoints |
-| FMCSA_API_KEY | Yes | FMCSA web service key |
-| FMCSA_MOCK_FALLBACK | No | Set `true` to use mock data (default: true) |
-| LOADS_FILE | No | Path to loads JSON (default: data/loads.json) |
+MC numbers are validated before hitting FMCSA: digits-only, 6–8 digits. Non-numeric or short MCs return `eligible: false, status: INVALID_MC_FORMAT` immediately.
 
-## Local Development
+### Load Data
+
+Loads are stored in `data/loads.json` (30 lanes, searchable by origin / destination / equipment type).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `load_id` | string | Unique identifier (e.g. `LD-001`) |
+| `origin` | string | Starting location |
+| `destination` | string | Delivery location |
+| `pickup_datetime` | ISO 8601 | Date and time for pickup |
+| `delivery_datetime` | ISO 8601 | Date and time for delivery |
+| `equipment_type` | string | `Dry Van`, `Reefer`, `Flatbed` |
+| `loadboard_rate` | float | Listed rate ($) |
+| `notes` | string | Additional information |
+| `weight` | float | Load weight (lbs) |
+| `commodity_type` | string | Type of goods |
+| `num_of_pieces` | int | Number of items |
+| `miles` | float | Distance to travel |
+| `dimensions` | string | Size measurements (e.g. `48x102`) |
+
+### Negotiation Rules
+
+- **Ceiling**: `loadboard_rate × 1.05` (5% above listed rate)
+- **Max rounds**: 3 counter-offer exchanges
+- **Strategy**: progressive counter-offers toward the ceiling
+- **Outcomes**: `booked` / `no_deal` / `abandoned`
+- **Transfer**: on booking, agent delivers mock transfer message: *"Transfer was successful — you can now wrap up the conversation."*
+
+---
+
+## Objective 2 — Metrics Dashboard
+
+Custom broker KPI dashboard at `/dashboard/` (not HappyRobot platform analytics).
+
+**Live:** https://happyrobot-challenge-production-caf1.up.railway.app/dashboard/
+
+### KPIs displayed
+
+| Metric | Description |
+|--------|-------------|
+| Conversion rate | `booked / total_calls` — hero stat |
+| Total calls | Count + today vs yesterday delta badge |
+| Booked | Successful bookings |
+| No deal | Negotiations that didn't close |
+| Revenue | Sum of agreed rates on booked calls |
+| Avg rate | Mean agreed rate on booked calls |
+| Best rate | Highest agreed rate ever |
+| Avg call duration | Mean `duration_seconds` across all calls |
+
+Charts: outcome donut, sentiment donut, 7-day call + booking line chart.
+
+### Metrics API
 
 ```bash
-cp .env.example .env
-# Edit .env with your keys
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+curl -H "x-api-key: $API_KEY" https://happyrobot-challenge-production-caf1.up.railway.app/metrics
 ```
 
-Test: `curl http://localhost:8000/health`
+---
 
-Dashboard: `open http://localhost:8000/dashboard/`
+## Objective 3 — Deployment & Infrastructure
 
-Metrics (example): `curl -s -H "x-api-key: $API_KEY" http://localhost:8000/metrics | head -c 400`
-
-## Docker
-
-```bash
-docker compose up --build
-```
-
-## Deployment Reproduction (Railway)
-
-Live deployment: `https://happyrobot-challenge-production-caf1.up.railway.app`
-
-### Re-deploy from scratch
-
-1. Fork/clone this repository
-2. Create a new Railway project → **Deploy from GitHub repo** → select this repo
-3. Set the following environment variables in Railway → **Settings → Variables**:
-
-| Variable | Value |
-|----------|-------|
-| `API_KEY` | strong secret — e.g. `openssl rand -hex 16` |
-| `FMCSA_API_KEY` | your FMCSA web services key |
-| `FMCSA_MOCK_FALLBACK` | `true` (demo mode) or `false` (live FMCSA lookups) |
-
-4. Railway auto-detects the `Dockerfile`. `PORT` is injected automatically and consumed by the `CMD`.
-5. Once the build completes, access the dashboard at `https://<your-railway-domain>/dashboard/`
-
-### Local Docker
+### Docker (Containerized)
 
 ```bash
 cp .env.example .env   # fill in API_KEY and FMCSA_API_KEY
@@ -95,34 +123,112 @@ docker compose up --build
 open http://localhost:8000/dashboard/
 ```
 
+The `Dockerfile` uses `python:3.11-slim`, runs as a non-root user (`appuser`), and exposes port `$PORT` (injected by Railway).
+
+---
+
+## Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | None | Health check |
+| GET | `/verify-carrier/{mc_number}` | x-api-key | FMCSA carrier verification |
+| GET | `/loads` | x-api-key | Search loads (origin, destination, equipment_type) |
+| GET | `/loads/{load_id}` | x-api-key | Get load by ID |
+| POST | `/calls` | x-api-key | Record call outcome |
+| GET | `/metrics` | x-api-key | Broker KPI metrics |
+| GET | `/dashboard/` | None | Broker dashboard UI (API key injected server-side) |
+
+---
+
+## Security
+
+All endpoints except `/health` and `/dashboard/` require `x-api-key` header matching `API_KEY` env var.
+
+The dashboard API key is **injected server-side** — it never appears in the versioned source file. The on-disk HTML contains a literal placeholder (`__API_KEY_JSON__`) replaced at request time by `serve_dashboard()` in `app/main.py`.
+
+HTTPS is enforced by Railway's edge proxy. All `*.up.railway.app` traffic is TLS-terminated before reaching the container.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `API_KEY` | Yes | API key for all protected endpoints |
+| `FMCSA_API_KEY` | Yes | FMCSA web service key |
+| `FMCSA_MOCK_FALLBACK` | No | `true` to use mock data (default: `true`) |
+| `LOADS_FILE` | No | Path to loads JSON (default: `data/loads.json`) |
+
+---
+
+## Local Development
+
+```bash
+cp .env.example .env
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+curl http://localhost:8000/health
+open http://localhost:8000/dashboard/
+curl -s -H "x-api-key: $API_KEY" http://localhost:8000/metrics
+```
+
+---
+
+## Deployment Reproduction (Railway)
+
+Live deployment: `https://happyrobot-challenge-production-caf1.up.railway.app`
+
+### Re-deploy from scratch
+
+1. Fork / clone this repository
+2. Create a new Railway project → **Deploy from GitHub repo** → select this repo
+3. Set environment variables in Railway → **Settings → Variables**:
+
+| Variable | Value |
+|----------|-------|
+| `API_KEY` | strong secret — e.g. `openssl rand -hex 16` |
+| `FMCSA_API_KEY` | your FMCSA web services key |
+| `FMCSA_MOCK_FALLBACK` | `true` (demo) or `false` (live FMCSA) |
+
+4. Railway auto-detects the `Dockerfile`. `PORT` is injected automatically.
+5. Access at `https://<your-railway-domain>/dashboard/`
+
+---
+
 ## Tests
 
 ```bash
 pytest tests/ -v
 ```
 
-Tests: negotiation, load search, metrics, FMCSA/MC validation, dashboard contract + served HTML.
+26 tests: negotiation rules, load search, metrics (incl. new KPIs), FMCSA/MC validation, dashboard contract + server-side API key injection.
 
-## Deliverables
-
-- **Dashboard**: https://happyrobot-challenge-production-caf1.up.railway.app/dashboard/
-- **Repository**: https://github.com/Sekoya88/happyrobot-carrier-sales
-- **Workflow**: [publish on HappyRobot platform and paste URL here]
-- **Demo video**: [record 5-min Loom after deployment verified and paste URL here]
+---
 
 ## Demo Script
 
 | Step | Carrier says | Agent does |
 |------|-------------|------------|
-| Start | "Hi, I need a load" | Greet, ask MC number |
-| MC | "123456" | Call verify_carrier → eligible |
-| Lane | "Chicago to Dallas, Dry Van" | Call search_loads → present LD-001 ($3,000) |
-| Rate | "Can you do $3,100?" | Accept (within 5% ceiling of $3,150) |
-| Close | "Sounds good" | Transfer message + record_call(booked) |
+| 1 | "Hi, I'm looking for a load" | Greet, ask for MC number |
+| 2 | "My MC is 123456" | Call `verify_carrier` → eligible |
+| 3 | "Chicago to Dallas, Dry Van" | Call `search_loads` → present LD-001 at $3,000 |
+| 4 | "Can you do $3,100?" | Evaluate → within 5% ceiling ($3,150) → accept |
+| 5 | "Deal" | Mock transfer message → AI Extract → `POST /calls` (booked) |
 
-## Negotiation Rules
+---
 
-- Max 3 counter-offer rounds
-- Ceiling: +5% above loadboard rate
-- Progressive counter-offers toward ceiling
-- Outcomes: `booked` / `no_deal` / `abandoned`
+## Deliverables
+
+| # | Deliverable | Status | Link |
+|---|-------------|--------|------|
+| 1 | Email to Carlos Becker | ✏️ to send | `docs/deliverables/email-carlos.md` |
+| 2 | Acme Logistics build description | ✅ drafted | `docs/deliverables/acme-logistics-build-description.md` |
+| 3 | Deployed dashboard | ✅ live | https://happyrobot-challenge-production-caf1.up.railway.app/dashboard/ |
+| 4 | Code repository | ✅ | https://github.com/Sekoya88/happyrobot-carrier-sales |
+| 5 | HappyRobot workflow link | ✏️ to publish | [paste URL after publishing workflow] |
+| 6 | Demo video (5 min) | ✏️ to record | [paste Loom URL after recording] |

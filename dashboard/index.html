@@ -164,33 +164,80 @@ function renderKPIs(d) {
   const hint = document.getElementById('emptyGlobalHint');
   if (d.total_calls === 0) {
     hint.classList.remove('hidden');
-    hint.textContent = 'No calls recorded yet. Metrics populate when your API receives POST /calls.';
+    hint.textContent = 'No calls recorded yet — metrics populate when POST /calls is received.';
   } else {
     hint.classList.add('hidden');
     hint.textContent = '';
   }
 
-  const avgRate = d.avg_agreed_rate ? '$' + Number(d.avg_agreed_rate).toLocaleString('en-US', {maximumFractionDigits:0}) : '—';
-  const rev = d.total_revenue ? '$' + Number(d.total_revenue).toLocaleString('en-US', {maximumFractionDigits:0}) : '$0';
+  const avgRate  = d.avg_agreed_rate ? '$' + Number(d.avg_agreed_rate).toLocaleString('en-US', {maximumFractionDigits:0}) : '—';
+  const rev      = d.total_revenue   ? '$' + Number(d.total_revenue).toLocaleString('en-US', {maximumFractionDigits:0})   : '$0';
+  const bestRate = d.top_rate        ? '$' + Number(d.top_rate).toLocaleString('en-US', {maximumFractionDigits:0})         : '—';
+  const avgDur   = d.avg_duration_seconds
+    ? (d.avg_duration_seconds >= 60
+        ? Math.floor(d.avg_duration_seconds / 60) + 'm ' + Math.round(d.avg_duration_seconds % 60) + 's'
+        : Math.round(d.avg_duration_seconds) + 's')
+    : '—';
+
+  const todayDelta = (d.calls_today || 0) - (d.calls_yesterday || 0);
+  function deltaBadge(delta) {
+    if (delta === 0) return { cls: 'neutral', txt: 'same as yesterday' };
+    return delta > 0
+      ? { cls: 'up',   txt: '↑ ' + delta + ' vs yesterday' }
+      : { cls: 'down', txt: '↓ ' + Math.abs(delta) + ' vs yesterday' };
+  }
+
   const items = [
-    {label:'Total calls',  val:d.total_calls,           cls:'',       vcls:'accent',  float:false, suffix:''},
-    {label:'Booked',       val:d.booked,                cls:'green',  vcls:'green',   float:false, suffix:''},
-    {label:'No deal',      val:d.no_deal,               cls:'red',    vcls:'red',     float:false, suffix:''},
-    {label:'Abandoned',    val:d.abandoned,             cls:'orange', vcls:'orange',  float:false, suffix:''},
-    {label:'Conversion',   val:d.conversion_rate*100,   cls:'purple', vcls:'purple',  float:true,  suffix:'%'},
-    {label:'Avg rate',     val:null,                    cls:'green',  vcls:'green',   float:false, suffix:'', raw:avgRate},
-    {label:'Revenue',      val:null,                    cls:'yellow', vcls:'yellow',  float:false, suffix:'', raw:rev},
+    {
+      label: 'Conversion rate',
+      val: d.conversion_rate * 100, cls: 'hero purple', vcls: 'purple',
+      float: true, suffix: '%',
+      sub: (d.booked || 0) + ' booked of ' + d.total_calls + ' calls',
+      delta: null,
+    },
+    {
+      label: 'Total calls', val: d.total_calls, cls: '', vcls: 'accent',
+      float: false, suffix: '',
+      sub: (d.calls_today || 0) + ' today',
+      delta: deltaBadge(todayDelta),
+    },
+    {
+      label: 'Booked', val: d.booked, cls: 'green', vcls: 'green',
+      float: false, suffix: '', sub: null, delta: null,
+    },
+    {
+      label: 'No deal', val: d.no_deal, cls: 'red', vcls: 'red',
+      float: false, suffix: '', sub: null, delta: null,
+    },
+    {
+      label: 'Revenue', val: null, cls: 'yellow', vcls: 'yellow',
+      float: false, suffix: '', raw: rev, sub: null, delta: null,
+    },
+    {
+      label: 'Avg rate', val: null, cls: 'green', vcls: 'green',
+      float: false, suffix: '', raw: avgRate, sub: null, delta: null,
+    },
+    {
+      label: 'Best rate', val: null, cls: 'orange', vcls: 'orange',
+      float: false, suffix: '', raw: bestRate, sub: null, delta: null,
+    },
+    {
+      label: 'Avg call duration', val: null, cls: '', vcls: 'accent',
+      float: false, suffix: '', raw: avgDur, sub: null, delta: null,
+    },
   ];
+
   const grid = document.getElementById('kpiGrid');
   grid.textContent = '';
   items.forEach(function(item) {
     const card = el('div', 'kpi-card ' + item.cls);
-    const lbl = el('div', 'kpi-label', item.label);
+    card.appendChild(el('div', 'kpi-label', item.label));
     const valEl = el('div', 'kpi-value ' + item.vcls, item.raw || '0');
-    card.appendChild(lbl);
     card.appendChild(valEl);
-    grid.appendChild(card);
     if (item.val !== null) animateValue(valEl, item.val, item.float, item.suffix);
+    if (item.sub) card.appendChild(el('div', 'kpi-sub', item.sub));
+    if (item.delta) card.appendChild(el('div', 'kpi-delta ' + item.delta.cls, item.delta.txt));
+    grid.appendChild(card);
   });
 }
 

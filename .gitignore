@@ -5,3 +5,5 @@ __pycache__/
 calls.db
 .worktrees/
 docs/deliverables/
+docs/acme-logistics-brief.md
+docs/email-carlos.md

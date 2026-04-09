@@ -102,6 +102,28 @@
 
 <script>
 const API_KEY = __API_KEY_JSON__;
+
+const DoughnutCenterPlugin = {
+  id: 'doughnutCenter',
+  afterDraw(chart) {
+    if (chart.config.type !== 'doughnut') return;
+    const { ctx, data, chartArea: { width, height, left, top } } = chart;
+    const total = data.datasets[0].data.reduce(function(a, b) { return a + b; }, 0);
+    if (total === 0) return;
+    const cx = left + width / 2, cy = top + height / 2;
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#e8eaef';
+    ctx.font = '700 1.1rem "Plus Jakarta Sans", system-ui';
+    ctx.fillText(total, cx, cy - 6);
+    ctx.fillStyle = '#8b92a8';
+    ctx.font = '400 0.5rem "IBM Plex Mono", monospace';
+    ctx.fillText('total', cx, cy + 9);
+    ctx.restore();
+  },
+};
+Chart.register(DoughnutCenterPlugin);
+
 let outcomeChart, sentimentChart, timelineChart;
 let allCalls = [];
 let sortCol = 'created_at', sortDir = -1;
@@ -340,29 +362,37 @@ function renderCharts(d) {
 
   if (timelineChart) timelineChart.destroy();
   timelineChart = new Chart(document.getElementById('timelineChart'), {
-    type: 'bar',
+    type: 'line',
     data: {
       labels: days,
       datasets: [
         {
           label: 'Total',
           data: totals,
-          backgroundColor: barTotal,
           borderColor: barTotalB,
-          borderWidth: 1,
-          borderRadius: 4,
+          backgroundColor: barTotal,
+          borderWidth: 2,
+          tension: 0.4,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          fill: true,
         },
         {
           label: 'Booked',
           data: bookedT,
-          backgroundColor: barBook,
           borderColor: barBookB,
-          borderWidth: 1,
-          borderRadius: 4,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.4,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          borderDash: [4, 3],
+          fill: false,
         },
       ],
     },
     options: {
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
           labels: {
@@ -370,6 +400,14 @@ function renderCharts(d) {
             font: { family: chartMonoFamily(), size: 9 },
             padding: 12,
           },
+        },
+        tooltip: {
+          backgroundColor: 'rgba(12,14,20,0.92)',
+          borderColor: 'rgba(255,255,255,0.08)',
+          borderWidth: 1,
+          titleFont: { family: chartMonoFamily(), size: 9 },
+          bodyFont: { family: chartMonoFamily(), size: 9 },
+          padding: 8,
         },
       },
       scales: scaleOpts(),

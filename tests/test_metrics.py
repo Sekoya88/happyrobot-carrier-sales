@@ -8,7 +8,7 @@ from domain.entities import CallRecord, CallOutcome, Sentiment
 @pytest.fixture
 def repo(tmp_path):
     db = str(tmp_path / "test.db")
-    r = CallRepository(db_path=db)
+    r = CallRepository(db_path=db, auto_seed=False)
     asyncio.get_event_loop().run_until_complete(r.init_db())
     return r
 

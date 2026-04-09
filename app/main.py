@@ -1,5 +1,9 @@
+import json
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI, Depends, Query, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from typing import Optional
 
@@ -20,6 +24,10 @@ load_repo = LoadRepository(settings.loads_file)
 fmcsa_client = FMCSAClient()
 metrics_svc = MetricsService(call_repo)
 
+_BASE_DIR = Path(__file__).resolve().parent.parent
+_DASHBOARD_DIR = _BASE_DIR / "dashboard"
+_DASHBOARD_API_TOKEN = "__API_KEY_JSON__"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,7 +36,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="HappyRobot Carrier Sales API", lifespan=lifespan)
-app.mount("/dashboard", StaticFiles(directory="dashboard", html=True), name="dashboard")
 
 
 @app.get("/health")
@@ -90,3 +97,21 @@ async def record_call(body: CallRecordIn):
 )
 async def get_metrics():
     return await metrics_svc.compute()
+
+
+@app.get("/dashboard", include_in_schema=False)
+@app.get("/dashboard/", include_in_schema=False)
+async def serve_dashboard():
+    path = _DASHBOARD_DIR / "index.html"
+    html = path.read_text(encoding="utf-8")
+    if _DASHBOARD_API_TOKEN not in html:
+        raise RuntimeError("dashboard index.html must contain API key placeholder")
+    html = html.replace(_DASHBOARD_API_TOKEN, json.dumps(settings.api_key))
+    return HTMLResponse(content=html, media_type="text/html")
+
+
+app.mount(
+    "/dashboard",
+    StaticFiles(directory=str(_DASHBOARD_DIR), html=False),
+    name="dashboard",
+)

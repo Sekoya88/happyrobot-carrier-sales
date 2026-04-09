@@ -39,8 +39,9 @@ SEED_RECORDS = [
 
 
 class CallRepository:
-    def __init__(self, db_path: str = "calls.db"):
+    def __init__(self, db_path: str = "calls.db", auto_seed: bool = True):
         self.db_path = db_path
+        self._auto_seed = auto_seed
 
     async def init_db(self):
         async with aiosqlite.connect(self.db_path) as db:
@@ -62,7 +63,7 @@ class CallRepository:
 
             cursor = await db.execute("SELECT COUNT(*) FROM calls")
             row = await cursor.fetchone()
-            if row[0] == 0:
+            if row[0] == 0 and self._auto_seed:
                 await self._seed(db)
 
     async def _seed(self, db):

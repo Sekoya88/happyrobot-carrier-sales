@@ -14,7 +14,7 @@ HappyRobot Voice Agent  →  FastAPI Backend  →  SQLite
 - **HappyRobot**: inbound voice agent, tool calls, conversation flow
 - **FastAPI**: carrier verification, load search, negotiation rules, call recording, metrics
 - **SQLite**: call history (swappable to Postgres behind the repository layer)
-- **Dashboard**: single-page broker KPI view at `/dashboard`
+- **Dashboard**: custom broker KPI UI (not HappyRobot analytics) — Aurora-style minimal UI at `/dashboard/`; static assets under `/dashboard/dashboard.css`. The HTML shell is rendered by FastAPI so `API_KEY` is injected from the server environment (source file on disk still contains a placeholder for local inspection only).
 
 ## Endpoints
 
@@ -26,7 +26,8 @@ HappyRobot Voice Agent  →  FastAPI Backend  →  SQLite
 | GET | /loads/{load_id} | x-api-key | Get load by ID |
 | POST | /calls | x-api-key | Record call outcome |
 | GET | /metrics | x-api-key | Broker KPI metrics |
-| GET | /dashboard | None | Broker dashboard UI |
+| GET | /dashboard/ | None | Broker dashboard UI (injects API key into page) |
+| GET | /dashboard/dashboard.css | None | Dashboard stylesheet |
 
 ## Environment Variables
 
@@ -49,7 +50,9 @@ uvicorn app.main:app --reload --port 8000
 
 Test: `curl http://localhost:8000/health`
 
-Dashboard: `open http://localhost:8000/dashboard`
+Dashboard: `open http://localhost:8000/dashboard/`
+
+Metrics (example): `curl -s -H "x-api-key: $API_KEY" http://localhost:8000/metrics | head -c 400`
 
 ## Docker
 
@@ -63,7 +66,7 @@ docker compose up --build
 pytest tests/ -v
 ```
 
-6 tests covering: negotiation rules, load search, metrics aggregation.
+Tests: negotiation, load search, metrics, FMCSA/MC validation, dashboard contract + served HTML.
 
 ## Deliverables
 
